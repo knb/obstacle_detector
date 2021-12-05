@@ -1,29 +1,36 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>obstacle_detector</name>
   <version>1.0.0</version>
   <description>Detect obstacles in form of line segments and circles from 2D laser scans.</description>
-  <maintainer email="mateusz.przybyla@put.poznan.pl">Mateusz Przybyla</maintainer>
+  <maintainer email="knb@artif.org">Kensei Nakamura</maintainer>
   <author>Mateusz Przybyla</author>
+  <author>Kensei Nakamura</author>
   <license>BSD</license>
 
-  <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>message_generation</build_depend>
-  <exec_depend>message_runtime</exec_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <build_depend>rosidl_default_generators</build_depend>
 
-  <depend>tf</depend>
-  <depend>rviz</depend>
-  <depend>roscpp</depend>
+  <depend>launch_ros</depend>
+
+  <depend>rclcpp</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
   <depend>roslaunch</depend>
-  <depend>nodelet</depend>
   <depend>std_msgs</depend>
   <depend>std_srvs</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>geometry2</depend>
   <depend>laser_geometry</depend>
+  <depend>obstacle_detector_interfaces</depend>
+
+  <exec_depend>rosidl_default_runtime</exec_depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
 
   <export>
-    <rviz plugin="${prefix}/rviz_plugins.xml"/>
-    <nodelet plugin="${prefix}/nodelet_plugins.xml" />
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

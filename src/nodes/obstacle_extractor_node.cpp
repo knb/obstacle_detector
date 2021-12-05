@@ -37,22 +37,39 @@
 
 using namespace obstacle_detector;
 
-int main(int argc, char** argv) {
-  ros::init(argc, argv, "obstacle_extractor", ros::init_options::NoRosout);
-  ros::NodeHandle nh("");
-  ros::NodeHandle nh_local("~");
+int main(int argc, char ** argv)
+{
+  rclcpp::init(argc, argv);
 
-  try {
-    ROS_INFO("[Obstacle Extractor]: Initializing node");
-    ObstacleExtractor od(nh, nh_local);
-    ros::spin();
-  }
-  catch (const char* s) {
-    ROS_FATAL_STREAM("[Obstacle Extractor]: "  << s);
-  }
-  catch (...) {
-    ROS_FATAL_STREAM("[Obstacle Extractor]: Unexpected error");
-  }
+  // Create SLAM system. It initializes all system threads and gets ready to process frames.
+  auto options = rclcpp::NodeOptions();
+  auto node = std::make_shared<ObstacleExtractor>("obstracle_extractor_node", options);
+
+  // node->init();
+
+  rclcpp::spin(node->get_node_base_interface());
+
+  rclcpp::shutdown();
 
   return 0;
 }
+
+// int main(int argc, char** argv) {
+//   ros::init(argc, argv, "obstacle_extractor", ros::init_options::NoRosout);
+//   ros::NodeHandle nh("");
+//   ros::NodeHandle nh_local("~");
+
+//   try {
+//     ROS_INFO("[Obstacle Extractor]: Initializing node");
+//     ObstacleExtractor od(nh, nh_local);
+//     ros::spin();
+//   }
+//   catch (const char* s) {
+//     ROS_FATAL_STREAM("[Obstacle Extractor]: "  << s);
+//   }
+//   catch (...) {
+//     ROS_FATAL_STREAM("[Obstacle Extractor]: Unexpected error");
+//   }
+
+//   return 0;
+// }

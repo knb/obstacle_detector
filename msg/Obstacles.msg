@@ -1,4 +1,4 @@
 Header header
 
-obstacle_detector/SegmentObstacle[] segments
-obstacle_detector/CircleObstacle[] circles
+obstacle_detector_interfaces/SegmentObstacle[] segments
+obstacle_detector_interfaces/CircleObstacle[] circles

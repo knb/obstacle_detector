@@ -35,33 +35,37 @@
 
 #pragma once
 
-#include <ros/ros.h>
-#include <tf/transform_listener.h>
-#include <std_srvs/Empty.h>
-#include <sensor_msgs/LaserScan.h>
-#include <sensor_msgs/PointCloud.h>
-#include <obstacle_detector/Obstacles.h>
-
+#include <rclcpp/rclcpp.hpp>
+#include "rcl_interfaces/msg/set_parameters_result.hpp"
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/buffer_interface.h>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include "obstacle_detector_interfaces/msg/obstacles.hpp"
 #include "obstacle_detector/utilities/point.h"
 #include "obstacle_detector/utilities/segment.h"
 #include "obstacle_detector/utilities/circle.h"
 #include "obstacle_detector/utilities/point_set.h"
 
+#include <memory>
+
 namespace obstacle_detector
 {
 
-class ObstacleExtractor
+class ObstacleExtractor : public rclcpp::Node
 {
 public:
-  ObstacleExtractor(ros::NodeHandle& nh, ros::NodeHandle& nh_local);
+  ObstacleExtractor(const std::string & node_name, const rclcpp::NodeOptions & node_options);
   ~ObstacleExtractor();
 
 private:
-  bool updateParams(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res);
-  void scanCallback(const sensor_msgs::LaserScan::ConstPtr scan_msg);
-  void pclCallback(const sensor_msgs::PointCloud::ConstPtr pcl_msg);
+  rcl_interfaces::msg::SetParametersResult updateParamsCallback(
+      const std::vector<rclcpp::Parameter> &parameters);
+  void scanCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan_msg);
+  void pclCallback(const sensor_msgs::msg::PointCloud2::SharedPtr pcl_msg);
 
-  void initialize() { std_srvs::Empty empt; updateParams(empt.request, empt.response); }
+  void updateSubscriber();
 
   void processPoints();
   void groupPoints();
@@ -77,17 +81,17 @@ private:
   void mergeCircles();
   bool compareCircles(const Circle& c1, const Circle& c2, Circle& merged_circle);
 
-  ros::NodeHandle nh_;
-  ros::NodeHandle nh_local_;
+  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pcl_sub_;
+  rclcpp::Publisher<obstacle_detector_interfaces::msg::Obstacles>::SharedPtr  obstacles_pub_;
 
-  ros::Subscriber scan_sub_;
-  ros::Subscriber pcl_sub_;
-  ros::Publisher obstacles_pub_;
-  ros::ServiceServer params_srv_;
+  rclcpp::Clock::SharedPtr clock_;
 
-  ros::Time stamp_;
+  builtin_interfaces::msg::Time stamp_;
+
   std::string base_frame_id_;
-  tf::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 
   std::list<Point> input_points_;
   std::list<Segment> segments_;
@@ -95,8 +99,11 @@ private:
 
   // Parameters
   bool p_active_;
+  bool prev_active_;
   bool p_use_scan_;
+  std::string scan_topic_;
   bool p_use_pcl_;
+  std::string pcl_topic_;
 
   bool p_use_split_and_merge_;
   bool p_circles_from_visibles_;
