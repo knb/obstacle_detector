@@ -91,7 +91,7 @@ ObstacleExtractor::ObstacleExtractor(const std::string & node_name,
 ObstacleExtractor::~ObstacleExtractor() { }
 
 void ObstacleExtractor::updateSubscriber() {
-  RCLCPP_INFO(get_logger(), "%d, %d, %s", p_active_, p_use_scan_, scan_topic_.c_str());
+  // RCLCPP_INFO(get_logger(), "%d, %d, %s", p_active_, p_use_scan_, scan_topic_.c_str());
   if (p_active_ != prev_active_) {
     if (p_active_) {
       if (p_use_scan_) {

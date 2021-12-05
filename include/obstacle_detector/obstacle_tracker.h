@@ -37,10 +37,9 @@
 
 #include <list>
 #include <string>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <armadillo>
-#include <std_srvs/Empty.h>
-#include <obstacle_detector/Obstacles.h>
+#include <obstacle_detector_interfaces/msg/obstacles.hpp>
 
 #include "obstacle_detector/utilities/tracked_obstacle.h"
 #include "obstacle_detector/utilities/math_utilities.h"
@@ -48,20 +47,24 @@
 namespace obstacle_detector
 {
 
-class ObstacleTracker {
+class ObstacleTracker : public rclcpp::Node {
 public:
-  ObstacleTracker(ros::NodeHandle& nh, ros::NodeHandle& nh_local);
+  ObstacleTracker(const std::string & node_name, const rclcpp::NodeOptions & node_options);
   ~ObstacleTracker();
 
 private:
-  bool updateParams(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res);
-  void timerCallback(const ros::TimerEvent&);
-  void obstaclesCallback(const obstacle_detector::Obstacles::ConstPtr new_obstacles);
+  rcl_interfaces::msg::SetParametersResult updateParamsCallback(
+      const std::vector<rclcpp::Parameter> &parameters);
 
-  void initialize() { std_srvs::Empty empt; updateParams(empt.request, empt.response); }
+  void updateSubscriber();
 
-  double obstacleCostFunction(const CircleObstacle& new_obstacle, const CircleObstacle& old_obstacle);
-  void calculateCostMatrix(const std::vector<CircleObstacle>& new_obstacles, arma::mat& cost_matrix);
+  void timerCallback();
+  void obstaclesCallback(const obstacle_detector_interfaces::msg::Obstacles::SharedPtr new_obstacles);
+
+  // void initialize() { std_srvs::Empty empt; updateParams(empt.request, empt.response); }
+
+  double obstacleCostFunction(const obstacle_detector_interfaces::msg::CircleObstacle& new_obstacle, const obstacle_detector_interfaces::msg::CircleObstacle& old_obstacle);
+  void calculateCostMatrix(const std::vector<obstacle_detector_interfaces::msg::CircleObstacle>& new_obstacles, arma::mat& cost_matrix);
   void calculateRowMinIndices(const arma::mat& cost_matrix, std::vector<int>& row_min_indices);
   void calculateColMinIndices(const arma::mat& cost_matrix, std::vector<int>& col_min_indices);
 
@@ -71,28 +74,27 @@ private:
   bool fissionObstaclesCorrespond(const int idx, const int jdx, const std::vector<int>& row_min_indices, const std::vector<int>& used_new);
 
   void fuseObstacles(const std::vector<int>& fusion_indices, const std::vector<int>& col_min_indices,
-                     std::vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles);
+                     std::vector<TrackedObstacle>& new_tracked, const obstacle_detector_interfaces::msg::Obstacles::SharedPtr& new_obstacles);
   void fissureObstacle(const std::vector<int>& fission_indices, const std::vector<int>& row_min_indices,
-                       std::vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles);
+                       std::vector<TrackedObstacle>& new_tracked, const obstacle_detector_interfaces::msg::Obstacles::SharedPtr& new_obstacles);
 
   void updateObstacles();
   void publishObstacles();
 
-  ros::NodeHandle nh_;
-  ros::NodeHandle nh_local_;
+  rclcpp::Subscription<obstacle_detector_interfaces::msg::Obstacles>::SharedPtr obstacles_sub_;
+  rclcpp::Publisher<obstacle_detector_interfaces::msg::Obstacles>::SharedPtr obstacles_pub_;
+  rclcpp::TimerBase::SharedPtr timer_;
 
-  ros::Subscriber obstacles_sub_;
-  ros::Publisher obstacles_pub_;
-  ros::ServiceServer params_srv_;
-  ros::Timer timer_;
+  rclcpp::Clock::SharedPtr clock_;
 
   double radius_margin_;
-  obstacle_detector::Obstacles obstacles_;
+  obstacle_detector_interfaces::msg::Obstacles obstacles_;
 
   std::vector<TrackedObstacle> tracked_obstacles_;
-  std::vector<CircleObstacle> untracked_obstacles_;
+  std::vector<obstacle_detector_interfaces::msg::CircleObstacle> untracked_obstacles_;
 
   // Parameters
+  bool prev_active_;
   bool p_active_;
   bool p_copy_segments_;
 

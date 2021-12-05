@@ -39,88 +39,86 @@ using namespace obstacle_detector;
 using namespace arma;
 using namespace std;
 
-ObstacleTracker::ObstacleTracker(ros::NodeHandle& nh, ros::NodeHandle& nh_local) : nh_(nh), nh_local_(nh_local) {
-  p_active_ = false;
+using std::placeholders::_1;
 
-  timer_ = nh_.createTimer(ros::Duration(1.0), &ObstacleTracker::timerCallback, this, false, false);
-  params_srv_ = nh_local_.advertiseService("params", &ObstacleTracker::updateParams, this);
+ObstacleTracker::ObstacleTracker(const std::string & node_name,
+  const rclcpp::NodeOptions & node_options) : rclcpp::Node(node_name, node_options),
+  p_active_(false), prev_active_(false)
+{
+  p_active_ = this->declare_parameter("active", true);
+  p_copy_segments_ = this->declare_parameter("copy_segments_", true);
+  p_loop_rate_ = this->declare_parameter("loop_rate", 100.0);
+  p_sampling_time_ = 1.0 / p_loop_rate_;
+  p_sensor_rate_ = 6.0; // 10.0;    // 10 Hz for Hokuyo
+  p_tracking_duration_ = this->declare_parameter("tracking_duration", 2.0);
+  p_min_correspondence_cost_ = this->declare_parameter("min_correspondence_cost", 0.3);
+  p_std_correspondence_dev_ = this->declare_parameter("std_correspondence_dev", 0.15);
+  p_process_variance_ = this->declare_parameter("process_variance", 0.01);
+  p_process_rate_variance_ = this->declare_parameter("process_rate_variance", 0.1);
+  p_measurement_variance_ = this->declare_parameter("measurement_variance", 1.0);
 
-  initialize();
+  p_frame_id_ = this->declare_parameter("frame_id", "map");
+  obstacles_.header.frame_id = p_frame_id_;
+
+  clock_ = this->get_clock();
+
+  std::chrono::milliseconds d((int)(p_sampling_time_ * 1000));
+  timer_ = this->create_wall_timer(d, std::bind(&ObstacleTracker::timerCallback, this));
+
+  updateSubscriber();
 }
 
 ObstacleTracker::~ObstacleTracker() {
-  nh_local_.deleteParam("active");
-  nh_local_.deleteParam("copy_segments");
-
-  nh_local_.deleteParam("loop_rate");
-  nh_local_.deleteParam("tracking_duration");
-  nh_local_.deleteParam("min_correspondence_cost");
-  nh_local_.deleteParam("std_correspondence_dev");
-  nh_local_.deleteParam("process_variance");
-  nh_local_.deleteParam("process_rate_variance");
-  nh_local_.deleteParam("measurement_variance");
-
-  nh_local_.deleteParam("frame_id");
 }
 
-bool ObstacleTracker::updateParams(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {
-  bool prev_active = p_active_;
-
-  nh_local_.param<bool>("active", p_active_, true);
-  nh_local_.param<bool>("copy_segments", p_copy_segments_, true);
-
-  nh_local_.param<double>("loop_rate", p_loop_rate_, 100.0);
-  p_sampling_time_ = 1.0 / p_loop_rate_;
-  p_sensor_rate_ = 10.0;    // 10 Hz for Hokuyo
-
-  nh_local_.param<double>("tracking_duration", p_tracking_duration_, 2.0);
-  nh_local_.param<double>("min_correspondence_cost", p_min_correspondence_cost_, 0.3);
-  nh_local_.param<double>("std_correspondence_dev", p_std_correspondence_dev_, 0.15);
-  nh_local_.param<double>("process_variance", p_process_variance_, 0.01);
-  nh_local_.param<double>("process_rate_variance", p_process_rate_variance_, 0.1);
-  nh_local_.param<double>("measurement_variance", p_measurement_variance_, 1.0);
-
-  nh_local_.param<string>("frame_id", p_frame_id_, string("map"));
-  obstacles_.header.frame_id = p_frame_id_;
+void ObstacleTracker::updateSubscriber() {
 
   TrackedObstacle::setSamplingTime(p_sampling_time_);
   TrackedObstacle::setCounterSize(static_cast<int>(p_loop_rate_ * p_tracking_duration_));
   TrackedObstacle::setCovariances(p_process_variance_, p_process_rate_variance_, p_measurement_variance_);
 
-  timer_.setPeriod(ros::Duration(p_sampling_time_), false);
+  // timer_.setPeriod(ros::WallDuration::WallDuration(p_sampling_time_));
 
-  if (p_active_ != prev_active) {
+  if (p_active_ != prev_active_) {
     if (p_active_) {
-      obstacles_sub_ = nh_.subscribe("raw_obstacles", 10, &ObstacleTracker::obstaclesCallback, this);
-      obstacles_pub_ = nh_.advertise<obstacle_detector::Obstacles>("tracked_obstacles", 10);
-      timer_.start();
+      obstacles_sub_ = this->create_subscription<obstacle_detector_interfaces::msg::Obstacles>("raw_obstacles", rclcpp::SensorDataQoS(), std::bind(&ObstacleTracker::obstaclesCallback, this, _1));
+      obstacles_pub_ = this->create_publisher<obstacle_detector_interfaces::msg::Obstacles>("tracked_obstacles", 10);
+      // timer_.start();
     }
     else {
       // Send empty message
-      obstacle_detector::ObstaclesPtr obstacles_msg(new obstacle_detector::Obstacles);
-      obstacles_msg->header.frame_id = obstacles_.header.frame_id;
-      obstacles_msg->header.stamp = ros::Time::now();
-      obstacles_pub_.publish(obstacles_msg);
+      auto obstacles_msg = obstacle_detector_interfaces::msg::Obstacles();
+      obstacles_msg.header.frame_id = obstacles_.header.frame_id;
+      obstacles_msg.header.stamp = clock_->now();
+      obstacles_pub_->publish(obstacles_msg);
 
-      obstacles_sub_.shutdown();
-      obstacles_pub_.shutdown();
+      obstacles_sub_.reset();
+      obstacles_pub_.reset();
 
       tracked_obstacles_.clear();
       untracked_obstacles_.clear();
 
-      timer_.stop();
+      // timer_.stop();
     }
   }
-
-  return true;
+  prev_active_ = p_active_;
 }
 
-void ObstacleTracker::timerCallback(const ros::TimerEvent&) {
+void ObstacleTracker::timerCallback() {
   updateObstacles();
   publishObstacles();
 }
 
-void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::ConstPtr new_obstacles) {
+rcl_interfaces::msg::SetParametersResult ObstacleTracker::updateParamsCallback(const std::vector<rclcpp::Parameter> &parameters) {
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+  result.reason = "success";
+  // Here update class attributes, do some actions, etc.
+  updateSubscriber();
+  return result;
+}
+
+void ObstacleTracker::obstaclesCallback(const obstacle_detector_interfaces::msg::Obstacles::SharedPtr new_obstacles) {
   if (new_obstacles->circles.size() > 0)
     radius_margin_ = new_obstacles->circles[0].radius - new_obstacles->circles[0].true_radius;
 
@@ -151,7 +149,7 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
   vector<int> used_new_obstacles;
 
   vector<TrackedObstacle> new_tracked_obstacles;
-  vector<CircleObstacle> new_untracked_obstacles;
+  vector<obstacle_detector_interfaces::msg::CircleObstacle> new_untracked_obstacles;
 
   // Check for fusion (only tracked obstacles)
   for (int i = 0; i < T-1; ++i) {
@@ -235,7 +233,7 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
   untracked_obstacles_.assign(new_untracked_obstacles.begin(), new_untracked_obstacles.end());
 }
 
-double ObstacleTracker::obstacleCostFunction(const CircleObstacle& new_obstacle, const CircleObstacle& old_obstacle) {
+double ObstacleTracker::obstacleCostFunction(const obstacle_detector_interfaces::msg::CircleObstacle& new_obstacle, const obstacle_detector_interfaces::msg::CircleObstacle& old_obstacle) {
   mat distribution = mat(2, 2).zeros();
   vec relative_position = vec(2).zeros();
 
@@ -245,8 +243,8 @@ double ObstacleTracker::obstacleCostFunction(const CircleObstacle& new_obstacle,
 
   double direction = atan2(old_obstacle.velocity.y, old_obstacle.velocity.x);
 
-  geometry_msgs::Point new_center = transformPoint(new_obstacle.center, 0.0, 0.0, -direction);
-  geometry_msgs::Point old_center = transformPoint(old_obstacle.center, 0.0, 0.0, -direction);
+  geometry_msgs::msg::Point new_center = transformPoint(new_obstacle.center, 0.0, 0.0, -direction);
+  geometry_msgs::msg::Point old_center = transformPoint(old_obstacle.center, 0.0, 0.0, -direction);
 
   distribution(0, 0) = pow(p_std_correspondence_dev_, 2.0) + squaredLength(old_obstacle.velocity) * pow(tp, 2.0);
   distribution(1, 1) = pow(p_std_correspondence_dev_, 2.0);
@@ -264,7 +262,7 @@ double ObstacleTracker::obstacleCostFunction(const CircleObstacle& new_obstacle,
   return cost / 1.0;
 }
 
-void ObstacleTracker::calculateCostMatrix(const vector<CircleObstacle>& new_obstacles, mat& cost_matrix) {
+void ObstacleTracker::calculateCostMatrix(const vector<obstacle_detector_interfaces::msg::CircleObstacle>& new_obstacles, mat& cost_matrix) {
   /*
    * Cost between two obstacles represents their difference.
    * The bigger the cost, the less similar they are.
@@ -403,8 +401,8 @@ bool ObstacleTracker::fissionObstaclesCorrespond(const int idx, const int jdx, c
 }
 
 void ObstacleTracker::fuseObstacles(const vector<int>& fusion_indices, const vector<int> &col_min_indices,
-                                    vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles) {
-  CircleObstacle c;
+                                    vector<TrackedObstacle>& new_tracked, const obstacle_detector_interfaces::msg::Obstacles::SharedPtr& new_obstacles) {
+  obstacle_detector_interfaces::msg::CircleObstacle c;
 
   double sum_var_x  = 0.0;
   double sum_var_y  = 0.0;
@@ -441,7 +439,7 @@ void ObstacleTracker::fuseObstacles(const vector<int>& fusion_indices, const vec
 }
 
 void ObstacleTracker::fissureObstacle(const vector<int>& fission_indices, const vector<int>& row_min_indices,
-                                      vector<TrackedObstacle>& new_tracked, const Obstacles::ConstPtr& new_obstacles) {
+                                      vector<TrackedObstacle>& new_tracked, const obstacle_detector_interfaces::msg::Obstacles::SharedPtr& new_obstacles) {
   // For each new obstacle taking part in fission create a tracked obstacle from the original old one and update it with the new one
   for (int idx : fission_indices) {
     TrackedObstacle to = tracked_obstacles_[row_min_indices[idx]];
@@ -463,20 +461,20 @@ void ObstacleTracker::updateObstacles() {
 }
 
 void ObstacleTracker::publishObstacles() {
-  obstacle_detector::ObstaclesPtr obstacles_msg(new obstacle_detector::Obstacles);
+  obstacle_detector_interfaces::msg::Obstacles::SharedPtr obstacles_msg(new obstacle_detector_interfaces::msg::Obstacles);
 
   obstacles_.circles.clear();
 
   for (auto& tracked_obstacle : tracked_obstacles_) {
-    CircleObstacle ob = tracked_obstacle.getObstacle();
+    obstacle_detector_interfaces::msg::CircleObstacle ob = tracked_obstacle.getObstacle();
     ob.true_radius = ob.radius - radius_margin_;
     obstacles_.circles.push_back(ob);
   }
 
   *obstacles_msg = obstacles_;
-  obstacles_msg->header.stamp = ros::Time::now();
+  obstacles_msg->header.stamp = clock_->now();
 
-  obstacles_pub_.publish(obstacles_msg);
+  obstacles_pub_->publish(*obstacles_msg);
 }
 
 // Ugly initialization of static members of tracked obstacles...
