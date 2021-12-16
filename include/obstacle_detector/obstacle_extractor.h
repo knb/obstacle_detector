@@ -47,6 +47,7 @@
 #include "obstacle_detector/utilities/segment.h"
 #include "obstacle_detector/utilities/circle.h"
 #include "obstacle_detector/utilities/point_set.h"
+#include "visibility_control.h"
 
 #include <memory>
 
@@ -56,7 +57,9 @@ namespace obstacle_detector
 class ObstacleExtractor : public rclcpp::Node
 {
 public:
-  ObstacleExtractor(const std::string & node_name, const rclcpp::NodeOptions & node_options);
+  OBSTACLE_DETECTOR_PUBLIC
+  ObstacleExtractor(const std::string & node_name = "",
+    const rclcpp::NodeOptions & node_options = rclcpp::NodeOptions());
   ~ObstacleExtractor();
 
 private:

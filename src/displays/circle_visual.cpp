@@ -43,8 +43,8 @@ CircleVisual::CircleVisual(Ogre::SceneManager* scene_manager, Ogre::SceneNode* p
   frame_node_1_ = parent_node->createChildSceneNode();
   frame_node_2_ = parent_node->createChildSceneNode();
 
-  obstacle_.reset(new rviz::Shape(rviz::Shape::Cylinder, scene_manager_, frame_node_1_));
-  margin_.reset(new rviz::Shape(rviz::Shape::Cylinder, scene_manager_, frame_node_2_));
+  obstacle_.reset(new rviz_rendering::Shape(rviz_rendering::Shape::Cylinder, scene_manager_, frame_node_1_));
+  margin_.reset(new rviz_rendering::Shape(rviz_rendering::Shape::Cylinder, scene_manager_, frame_node_2_));
 }
 
 CircleVisual::~CircleVisual() {
@@ -52,7 +52,7 @@ CircleVisual::~CircleVisual() {
   scene_manager_->destroySceneNode(frame_node_2_);
 }
 
-void CircleVisual::setData(const obstacle_detector::CircleObstacle& circle) {
+void CircleVisual::setData(const obstacle_detector_interfaces::msg::CircleObstacle& circle) {
   Ogre::Vector3 pos(circle.center.x, circle.center.y, 0.25);
   obstacle_->setPosition(pos);
 
@@ -91,4 +91,3 @@ void CircleVisual::setMarginColor(float r, float g, float b, float a) {
 }
 
 } // end namespace obstacles_display
-

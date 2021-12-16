@@ -42,14 +42,14 @@ SegmentVisual::SegmentVisual(Ogre::SceneManager* scene_manager, Ogre::SceneNode*
   scene_manager_ = scene_manager;
   frame_node_ = parent_node->createChildSceneNode();
 
-  line_.reset(new rviz::BillboardLine(scene_manager_, frame_node_));
+  line_.reset(new rviz_rendering::BillboardLine(scene_manager_, frame_node_));
 }
 
 SegmentVisual::~SegmentVisual() {
   scene_manager_->destroySceneNode(frame_node_);
 }
 
-void SegmentVisual::setData(const obstacle_detector::SegmentObstacle& segment) {
+void SegmentVisual::setData(const obstacle_detector_interfaces::msg::SegmentObstacle& segment) {
   Ogre::Vector3 p1(segment.first_point.x, segment.first_point.y, 0.0);
   Ogre::Vector3 p2(segment.last_point.x, segment.last_point.y, 0.0);
   line_->addPoint(p1);
@@ -73,4 +73,3 @@ void SegmentVisual::setWidth(float w) {
 }
 
 } // end namespace obstacles_display
-

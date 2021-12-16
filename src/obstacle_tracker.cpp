@@ -64,7 +64,6 @@ ObstacleTracker::ObstacleTracker(const std::string & node_name,
 
   std::chrono::milliseconds d((int)(p_sampling_time_ * 1000));
   timer_ = this->create_wall_timer(d, std::bind(&ObstacleTracker::timerCallback, this));
-
   updateSubscriber();
 }
 
@@ -83,6 +82,7 @@ void ObstacleTracker::updateSubscriber() {
     if (p_active_) {
       obstacles_sub_ = this->create_subscription<obstacle_detector_interfaces::msg::Obstacles>("raw_obstacles", rclcpp::SensorDataQoS(), std::bind(&ObstacleTracker::obstaclesCallback, this, _1));
       obstacles_pub_ = this->create_publisher<obstacle_detector_interfaces::msg::Obstacles>("tracked_obstacles", 10);
+      RCLCPP_INFO(get_logger(), "subscribe: %s", obstacles_sub_->get_topic_name());
       // timer_.start();
     }
     else {

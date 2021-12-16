@@ -39,21 +39,21 @@ namespace obstacles_display
 {
 
 ObstaclesDisplay::ObstaclesDisplay() {
-  circle_color_property_ = new rviz::ColorProperty("Circles color", QColor(170, 0, 0), "Color of circles.", this, SLOT(updateCircleColor()));
-  margin_color_property_ = new rviz::ColorProperty("Margin color", QColor(0, 170, 0), "Color of margin added around circles.", this, SLOT(updateCircleColor()));
-  segment_color_property_ = new rviz::ColorProperty("Segments color", QColor(170, 170, 0), "Color of segments.", this, SLOT(updateSegmentColor()));
-  alpha_property_ = new rviz::FloatProperty("Opacity", 0.75, "Value 0,0 is fully transparent, 1,0 is fully opaque.", this, SLOT(updateAlpha()));
-  thickness_property_ = new rviz::FloatProperty("Segments thickness", 0.03f, "Width of the segments in meters.", this, SLOT(updateThickness()));
-}
-
-void ObstaclesDisplay::onInitialize() {
-  MessageFilterDisplay<obstacle_detector::Obstacles>::onInitialize();
+  circle_color_property_ = new rviz_common::properties::ColorProperty("Circles color", QColor(170, 0, 0), "Color of circles.", this, SLOT(updateCircleColor()));
+  margin_color_property_ = new rviz_common::properties::ColorProperty("Margin color", QColor(0, 170, 0), "Color of margin added around circles.", this, SLOT(updateCircleColor()));
+  segment_color_property_ = new rviz_common::properties::ColorProperty("Segments color", QColor(170, 170, 0), "Color of segments.", this, SLOT(updateSegmentColor()));
+  alpha_property_ = new rviz_common::properties::FloatProperty("Opacity", 0.75, "Value 0,0 is fully transparent, 1,0 is fully opaque.", this, SLOT(updateAlpha()));
+  thickness_property_ = new rviz_common::properties::FloatProperty("Segments thickness", 0.03f, "Width of the segments in meters.", this, SLOT(updateThickness()));
 }
 
 ObstaclesDisplay::~ObstaclesDisplay() {}
 
+void ObstaclesDisplay::onInitialize() {
+  RTDClass::onInitialize();
+}
+
 void ObstaclesDisplay::reset() {
-  MessageFilterDisplay<obstacle_detector::Obstacles>::reset();
+  RTDClass::reset();
   circle_visuals_.clear();
   segment_visuals_.clear();
 }
@@ -89,19 +89,19 @@ void ObstaclesDisplay::updateThickness() {
     s->setWidth(width);
 }
 
-void ObstaclesDisplay::processMessage(const obstacle_detector::Obstacles::ConstPtr& obstacles_msg) {
+void ObstaclesDisplay::processMessage(const obstacle_detector_interfaces::msg::Obstacles::ConstSharedPtr obstacles_msg) {
   circle_visuals_.clear();
   segment_visuals_.clear();
 
   Ogre::Quaternion orientation;
   Ogre::Vector3 position;
   if (!context_->getFrameManager()->getTransform(obstacles_msg->header.frame_id, obstacles_msg->header.stamp, position, orientation)) {
-    ROS_DEBUG( "Error transforming from frame '%s' to frame '%s'", obstacles_msg->header.frame_id.c_str(), qPrintable( fixed_frame_ ));
+    RCLCPP_INFO(rviz_ros_node_.lock()->get_raw_node()->get_logger(), "Error transforming from frame '%s' to frame '%s'", obstacles_msg->header.frame_id.c_str(), qPrintable( fixed_frame_ ));
     return;
   }
 
   for (const auto& circle : obstacles_msg->circles) {
-    boost::shared_ptr<CircleVisual> visual;
+    std::shared_ptr<CircleVisual> visual;
     visual.reset(new CircleVisual(context_->getSceneManager(), scene_node_));
 
     visual->setData(circle);
@@ -112,7 +112,7 @@ void ObstaclesDisplay::processMessage(const obstacle_detector::Obstacles::ConstP
   }
 
   for (const auto& segment : obstacles_msg->segments) {
-    boost::shared_ptr<SegmentVisual> visual;
+    std::shared_ptr<SegmentVisual> visual;
     visual.reset(new SegmentVisual(context_->getSceneManager(), scene_node_));
 
     visual->setData(segment);
@@ -128,6 +128,5 @@ void ObstaclesDisplay::processMessage(const obstacle_detector::Obstacles::ConstP
 
 } // end namespace obstacles_display
 
-#include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(obstacles_display::ObstaclesDisplay, rviz::Display)
-
+#include <pluginlib/class_list_macros.hpp>
+PLUGINLIB_EXPORT_CLASS(obstacles_display::ObstaclesDisplay, rviz_common::Display)
