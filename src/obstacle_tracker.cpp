@@ -41,6 +41,8 @@ using namespace std;
 
 using std::placeholders::_1;
 
+int TrackedObstacle::object_count_ = 0;
+
 ObstacleTracker::ObstacleTracker(const std::string & node_name,
   const rclcpp::NodeOptions & node_options) : rclcpp::Node(node_name, node_options),
   p_active_(false), prev_active_(false)

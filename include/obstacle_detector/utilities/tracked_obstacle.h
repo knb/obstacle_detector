@@ -45,6 +45,10 @@ namespace obstacle_detector
 class TrackedObstacle {
 public:
   TrackedObstacle(const obstacle_detector_interfaces::msg::CircleObstacle& obstacle) : obstacle_(obstacle), kf_x_(0, 1, 2), kf_y_(0, 1, 2), kf_r_(0, 1, 2) {
+    TrackedObstacle::object_count_++;
+    track_id = TrackedObstacle::object_count_;
+    obstacle_.track_id = track_id;
+
     fade_counter_ = s_fade_counter_size_;
     initKF();
   }
@@ -125,6 +129,8 @@ public:
   const KalmanFilter& getKFy() const { return kf_y_; }
   const KalmanFilter& getKFr() const { return kf_r_; }
 
+  int track_id;
+
 private:
   void initKF() {
     kf_x_.A(0, 1) = s_sampling_time_;
@@ -176,6 +182,8 @@ private:
   static double s_process_variance_;
   static double s_process_rate_variance_;
   static double s_measurement_variance_;
+
+  static int object_count_;
 };
 
 }
