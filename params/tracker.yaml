@@ -26,7 +26,7 @@ obstacle_tracker:
     tracking_duration: 2.0
     min_correspondence_cost: 0.6
     std_correspondence_dev: 0.15
-    process_variance: 0.1  
-    process_rate_variance: 0.1  
-    measurement_variance: 1.0 
+    process_variance: 0.1
+    process_rate_variance: 0.1
+    measurement_variance: 1.0
     frame_id: base_link
