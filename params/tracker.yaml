@@ -22,7 +22,7 @@ obstacle_extractor:
 obstacle_tracker:
   ros__parameters:
     active: true
-    loop_rate: 100.0
+    loop_rate: 12.0
     tracking_duration: 2.0
     min_correspondence_cost: 0.6
     std_correspondence_dev: 0.15
