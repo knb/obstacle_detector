@@ -98,7 +98,7 @@ void ObstacleExtractor::updateSubscriber() {
         scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(scan_topic_, rclcpp::SensorDataQoS(), std::bind(&ObstacleExtractor::scanCallback, this, _1));
         RCLCPP_INFO(get_logger(), "subscribe: %s", scan_topic_.c_str());
       } else if (p_use_pcl_) {
-        pcl_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(pcl_topic_, rclcpp::SensorDataQoS(), std::bind(&ObstacleExtractor::pclCallback, this, _1));
+        pcl_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(pcl_topic_, rclcpp::SensorDataQoS(), std::bind(&ObstacleExtractor::pclCallback, this, _1));
       }
 
       obstacles_pub_ = this->create_publisher<obstacle_detector_interfaces::msg::Obstacles>("raw_obstacles", 10);
